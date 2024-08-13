@@ -52,15 +52,45 @@ public class FBXMaterialAssign : EditorWindow
 
             if (importer != null)
             {
+                // Perform the material search and remap
                 importer.materialImportMode = ModelImporterMaterialImportMode.ImportStandard;
                 importer.materialSearch = ModelImporterMaterialSearch.Everywhere;
                 importer.SearchAndRemapMaterials(ModelImporterMaterialName.BasedOnMaterialName, ModelImporterMaterialSearch.Everywhere);
                 AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
-                Debug.Log($"Updated material settings for: {assetPath}");
+
+                // Check if any material was actually assigned
+                bool materialAssigned = CheckIfMaterialAssigned(importer);
+
+                // If no material was assigned, set the Material Creation Mode to None
+                if (!materialAssigned)
+                {
+                    importer.materialImportMode = ModelImporterMaterialImportMode.None;
+                    Debug.Log($"No material found for: {assetPath}. Material Creation Mode set to None.");
+                    AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+                }
+                else
+                {
+                    Debug.Log($"Updated material settings for: {assetPath}");
+                }
             }
         }
 
         AssetDatabase.Refresh();
         Debug.Log("Material assignment complete.");
+    }
+
+    private bool CheckIfMaterialAssigned(ModelImporter importer)
+    {
+        var materialMap = importer.GetExternalObjectMap();
+
+        foreach (var entry in materialMap)
+        {
+            if (entry.Value is Material)
+            {
+                return true;  // Material successfully remapped
+            }
+        }
+
+        return false;  // No materials were remapped
     }
 }
