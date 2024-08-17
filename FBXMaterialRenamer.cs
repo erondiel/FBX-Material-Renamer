@@ -52,8 +52,20 @@ public class FBXMaterialAssign : EditorWindow
 
         HandleDragAndDrop(dropArea);
 
+        GUILayout.Space(10);
+
+        // Display the list of dragged files
         if (fileObjects.Count > 0)
         {
+            GUILayout.Label("Selected Files:", EditorStyles.boldLabel);
+
+            foreach (Object obj in fileObjects)
+            {
+                GUILayout.Label(AssetDatabase.GetAssetPath(obj), EditorStyles.label);
+            }
+
+            GUILayout.Space(10);
+
             if (GUILayout.Button("Assign Materials to Selected Files", GUILayout.Height(40)))
             {
                 AssignMaterialsToFiles(fileObjects.ToArray());
