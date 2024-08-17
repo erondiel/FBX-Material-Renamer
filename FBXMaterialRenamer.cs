@@ -1,10 +1,12 @@
 using UnityEditor;
 using UnityEngine;
 using System.IO;
+using System.Collections.Generic;
 
 public class FBXMaterialAssign : EditorWindow
 {
     private Object folderObject;
+    private List<Object> fileObjects = new List<Object>();
 
     [MenuItem("Window/Level Design/FBX Material Assign")]
     public static void ShowWindow()
@@ -25,9 +27,9 @@ public class FBXMaterialAssign : EditorWindow
 
             if (Directory.Exists(folderPath))
             {
-                if (GUILayout.Button("Assign Materials", GUILayout.Height(40)))
+                if (GUILayout.Button("Assign Materials from Folder", GUILayout.Height(40)))
                 {
-                    AssignMaterials(folderPath);
+                    AssignMaterialsFromFolder(folderPath);
                 }
             }
             else
@@ -39,12 +41,76 @@ public class FBXMaterialAssign : EditorWindow
         {
             EditorGUILayout.HelpBox("Drag and drop a folder here.", MessageType.Info);
         }
+
+        GUILayout.Space(20);
+
+        GUILayout.Label("Assign Materials to Selected Files", EditorStyles.boldLabel);
+
+        // Drag-and-Drop Files Area
+        Rect dropArea = GUILayoutUtility.GetRect(0.0f, 50.0f, GUILayout.ExpandWidth(true));
+        GUI.Box(dropArea, "Drag and drop one or more FBX files here");
+
+        HandleDragAndDrop(dropArea);
+
+        if (fileObjects.Count > 0)
+        {
+            if (GUILayout.Button("Assign Materials to Selected Files", GUILayout.Height(40)))
+            {
+                AssignMaterialsToFiles(fileObjects.ToArray());
+            }
+        }
     }
 
-    private void AssignMaterials(string folderPath)
+    private void HandleDragAndDrop(Rect dropArea)
+    {
+        Event evt = Event.current;
+        switch (evt.type)
+        {
+            case EventType.DragUpdated:
+            case EventType.DragPerform:
+                if (!dropArea.Contains(evt.mousePosition))
+                    return;
+
+                DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+
+                if (evt.type == EventType.DragPerform)
+                {
+                    DragAndDrop.AcceptDrag();
+
+                    foreach (Object draggedObject in DragAndDrop.objectReferences)
+                    {
+                        if (draggedObject != null && AssetDatabase.GetAssetPath(draggedObject).EndsWith(".fbx"))
+                        {
+                            fileObjects.Add(draggedObject);
+                        }
+                    }
+                }
+                Event.current.Use();
+                break;
+        }
+    }
+
+    private void AssignMaterialsFromFolder(string folderPath)
     {
         string[] fbxFiles = Directory.GetFiles(folderPath, "*.fbx", SearchOption.AllDirectories);
+        ProcessFBXFiles(fbxFiles);
+    }
 
+    private void AssignMaterialsToFiles(Object[] files)
+    {
+        string[] fbxFiles = new string[files.Length];
+
+        for (int i = 0; i < files.Length; i++)
+        {
+            string assetPath = AssetDatabase.GetAssetPath(files[i]);
+            fbxFiles[i] = assetPath;
+        }
+
+        ProcessFBXFiles(fbxFiles);
+    }
+
+    private void ProcessFBXFiles(string[] fbxFiles)
+    {
         foreach (string fbxFile in fbxFiles)
         {
             string assetPath = fbxFile.Replace("\\", "/").Replace(Application.dataPath, "Assets");
@@ -52,16 +118,13 @@ public class FBXMaterialAssign : EditorWindow
 
             if (importer != null)
             {
-                // Perform the material search and remap
                 importer.materialImportMode = ModelImporterMaterialImportMode.ImportStandard;
                 importer.materialSearch = ModelImporterMaterialSearch.Everywhere;
                 importer.SearchAndRemapMaterials(ModelImporterMaterialName.BasedOnMaterialName, ModelImporterMaterialSearch.Everywhere);
                 AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
 
-                // Check if any material was actually assigned
                 bool materialAssigned = CheckIfMaterialAssigned(importer);
 
-                // If no material was assigned, set the Material Creation Mode to None
                 if (!materialAssigned)
                 {
                     importer.materialImportMode = ModelImporterMaterialImportMode.None;
@@ -87,10 +150,10 @@ public class FBXMaterialAssign : EditorWindow
         {
             if (entry.Value is Material)
             {
-                return true;  // Material successfully remapped
+                return true;
             }
         }
 
-        return false;  // No materials were remapped
+        return false;
     }
 }
